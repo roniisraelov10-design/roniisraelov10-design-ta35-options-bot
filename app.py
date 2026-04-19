@@ -330,7 +330,7 @@ def page_home():
 
     with col1:
         st.metric(
-            label="TA-35 Index",
+            label="מדד תא 35",
             value=f"{st.session_state.market_data['underlying_price']:,.0f}",
             delta=None
         )
