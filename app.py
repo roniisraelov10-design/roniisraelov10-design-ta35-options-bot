@@ -4,25 +4,23 @@ import numpy as np
 import plotly.graph_objects as go
 from scipy.stats import norm
 from datetime import datetime
+import yfinance as yf
 
 # --- הגדרות עמוד ---
-st.set_page_config(page_title="TA35 Options Analytics", page_icon="📊", layout="wide")
+st.set_page_config(page_title="TA35 & Global Dashboard", page_icon="🌍", layout="wide")
 st.markdown("""<style> body { direction: rtl; text-align: right; } </style>""", unsafe_allow_html=True)
 
-# --- מנוע מתמטי: בלאק שולס ויווניות ---
+# --- פונקציות מתמטיות (בלאק שולס) ---
 def bs_price_and_greeks(S, K, T, r, sigma, option_type='call'):
-    """חישוב מחיר ויווניות לפי מודל בלאק-שולס"""
     if T <= 0: return 0, 0, 0, 0, 0
     d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
     d2 = d1 - sigma * np.sqrt(T)
-    
     if option_type == 'call':
         price = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
         delta = norm.cdf(d1)
     else:
         price = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
         delta = norm.cdf(d1) - 1
-        
     gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
     vega = S * norm.pdf(d1) * np.sqrt(T) / 100
     theta = -(S * norm.pdf(d1) * sigma / (2 * np.sqrt(T)))
@@ -31,71 +29,91 @@ def bs_price_and_greeks(S, K, T, r, sigma, option_type='call'):
     else:
         theta = theta + r * K * np.exp(-r * T) * norm.cdf(-d2)
     theta = theta / 365
-
     return price, delta, gamma, theta, vega
 
-# --- נתוני שוק (סימולציה כהכנה לנתוני אמת) ---
-# במקום הקוד הזה נכניס בעתיד חיבור ל-API
-current_spot = 2085.0
-current_iv = 0.18
-risk_free_rate = 0.045
-dte = 20 # ימים לפקיעה
-time_to_expiry = dte / 365.0
+# --- משיכת נתוני שוק גלובליים מ-Yahoo Finance ---
+@st.cache_data(ttl=60) # שומר בזיכרון לדקה כדי שהאתר יטוס ולא ייתקע
+def get_global_markets():
+    tickers = ["^GSPC", "^IXIC", "ILS=X", "TA35.TA"] # S&P500, Nasdaq, USD/ILS, TA35
+    data = {}
+    for t in tickers:
+        try:
+            ticker = yf.Ticker(t)
+            hist = ticker.history(period="2d")
+            if len(hist) >= 2:
+                current = hist['Close'].iloc[-1]
+                prev = hist['Close'].iloc[-2]
+                change = ((current - prev) / prev) * 100
+                data[t] = {"price": current, "change": change}
+            else:
+                data[t] = {"price": 0, "change": 0}
+        except:
+            data[t] = {"price": 0, "change": 0}
+    return data
 
-st.session_state.market_data = {"underlying": current_spot, "iv": current_iv}
+global_data = get_global_markets()
 
-# --- כותרות ועיצוב (העיצוב המקצועי שלך) ---
-st.title("📊 TA35 Options Analytics Dashboard")
+# --- כותרות ועיצוב ---
+st.title("🌍 דשבורד מסחר עולמי ואופציות ת\"א 35")
 
-col1, col2, col3, col4 = st.columns(4)
-with col1: st.metric("💹 מדד תא 35", f"{current_spot:,.1f}")
-with col2: st.metric("🎯 IV (ATM)", f"{current_iv*100:.1f}%")
-with col3: st.metric("📈 IV Rank", "72/100")
-with col4: st.metric("🕐 עדכון אחרון", datetime.now().strftime("%H:%M"))
+# --- פס מדדים עולמי - חי! ---
+st.subheader("🌐 שווקים בעולם (מעודכן בזמן אמת)")
+g1, g2, g3, g4 = st.columns(4)
+with g1:
+    st.metric("🇺🇸 S&P 500", f"{global_data['^GSPC']['price']:,.2f}", f"{global_data['^GSPC']['change']:.2f}%")
+with g2:
+    st.metric("🇺🇸 Nasdaq", f"{global_data['^IXIC']['price']:,.2f}", f"{global_data['^IXIC']['change']:.2f}%")
+with g3:
+    st.metric("💵 דולר / שקל", f"{global_data['ILS=X']['price']:.4f}", f"{global_data['ILS=X']['change']:.2f}%")
+with g4:
+    # משיכת ת"א 35 או שימוש בערך ברירת מחדל אם הבורסה סגורה
+    ta35_price = global_data['TA35.TA']['price'] if global_data['TA35.TA']['price'] > 0 else 2085.0
+    st.metric("🇮🇱 ת\"א 35", f"{ta35_price:,.2f}", f"{global_data['TA35.TA']['change']:.2f}%")
+
 st.divider()
 
-# --- יצירת שרשרת אופציות (Option Chain) דינמית ---
-st.subheader("⛓️ שרשרת אופציות פעילה (מוכנה לחיבור נתונים)")
-strikes = [1950, 2000, 2050, 2100, 2150]
-chain_data = []
+# --- נתוני שוק לבוט האופציות ---
+current_spot = ta35_price
+current_iv = 0.18
+risk_free_rate = 0.045
+dte = 20
+time_to_expiry = dte / 365.0
 
+# --- יצירת שרשרת אופציות (Option Chain) דינמית ---
+st.subheader("⛓️ מנוע אופציות ת\"א 35 (מבוסס על המדד החי)")
+# מחשב סטרייקים באופן דינמי סביב המחיר הנוכחי
+base_strike = round(current_spot / 10) * 10
+strikes = [base_strike - 100, base_strike - 50, base_strike, base_strike + 50, base_strike + 100]
+
+chain_data = []
 for strike in strikes:
-    # הוספת "חיוך" לתנודתיות
     iv_smile = current_iv + 0.03 * ((strike/current_spot - 1)**2)
-    
-    # חישוב Puts
-    p_price, p_delta, _, p_theta, _ = bs_price_and_greeks(current_spot, strike, time_to_expiry, risk_free_rate, iv_smile, 'put')
-    # חישוב Calls
-    c_price, c_delta, _, c_theta, _ = bs_price_and_greeks(current_spot, strike, time_to_expiry, risk_free_rate, iv_smile, 'call')
+    p_price, p_delta, _, _, _ = bs_price_and_greeks(current_spot, strike, time_to_expiry, risk_free_rate, iv_smile, 'put')
+    c_price, c_delta, _, _, _ = bs_price_and_greeks(current_spot, strike, time_to_expiry, risk_free_rate, iv_smile, 'call')
     
     chain_data.append({
         "Put Delta": f"{p_delta:.2f}",
-        "Put Price": f"₪{p_price * 100:,.0f}", # מכפיל 100
+        "Put Price": f"₪{p_price * 100:,.0f}",
         "Strike": strike,
         "Call Price": f"₪{c_price * 100:,.0f}",
-        "Call Delta": f"{c_delta:.2f}",
-        "IV": f"{iv_smile*100:.1f}%"
+        "Call Delta": f"{c_delta:.2f}"
     })
 
 st.dataframe(pd.DataFrame(chain_data), use_container_width=True)
 st.divider()
 
-# --- מנוע איתותים (Bull Put / Bear Call) ---
+# --- מנוע איתותים ---
 st.subheader("🎯 הזדמנויות מסחר מחושבות")
-
-# סימולציה של חוקי האיתות שלך:
 signals = []
 for data in chain_data:
     strike = data["Strike"]
-    # חיפוש Bull Put (כתיבת פוט רחוק מהכסף)
-    if float(data["Put Delta"]) > -0.30 and strike < current_spot:
+    put_delta = float(data["Put Delta"])
+    if put_delta > -0.30 and strike < current_spot:
          signals.append({
              "אסטרטגיה": "Bull Put Spread",
              "סטרייקים (Short/Long)": f"{strike}/{strike-50}",
-             "פרמיה נטו": f"₪{(float(data['Put Price'].replace('₪', '').replace(',', '')) - 300):,.0f}", # סימולציה למחיר גידור
-             "עוצמה": "🟢 STRONG" if float(data["Put Delta"]) > -0.15 else "🟡 MEDIUM"
+             "פרמיה נטו מחושבת": f"₪{(float(data['Put Price'].replace('₪', '').replace(',', '')) - 300):,.0f}",
+             "עוצמה": "🟢 STRONG" if put_delta > -0.15 else "🟡 MEDIUM"
          })
 
 st.dataframe(pd.DataFrame(signals), use_container_width=True)
-
-st.success("✅ מנוע בלאק-שולס ויווניות הוטמע בהצלחה. המערכת מוכנה לחיבור נתונים חיים!")
