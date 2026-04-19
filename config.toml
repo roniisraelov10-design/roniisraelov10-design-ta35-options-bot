@@ -1,0 +1,32 @@
+[theme]
+# צבע וסגנון
+primaryColor = "#0066cc"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f9fafb"
+textColor = "#1f2937"
+font = "sans serif"
+
+[client]
+# הגדרות לקוח
+showErrorDetails = true
+toolbarMode = "viewer"
+logger.level = "info"
+
+[logger]
+# Logging
+level = "info"
+
+[server]
+# הגדרות שרת עבור Streamlit Cloud
+maxUploadSize = 200  # MB
+enableXsrfProtection = true
+enableCORS = true
+
+[browser]
+# הגדרות דפדפן
+gatherUsageStats = false
+serverAddress = "localhost"
+
+[client.toolbarMode]
+# הסתר toolbar כלים מיותרים
+showErrorDetails = true
