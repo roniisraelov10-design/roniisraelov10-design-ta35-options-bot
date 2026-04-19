@@ -331,8 +331,8 @@ def page_home():
     with col1:
         st.metric(
             label="TA-35 Index",
-            f"{st.session_state.market_data['underlying_price']:,.0f}",
-            delta=None,
+            value=f"{st.session_state.market_data['underlying_price']:,.0f}",
+            delta=None
         )
 
     with col2:
