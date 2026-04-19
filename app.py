@@ -1,41 +1,25 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 
-# הגדרות עמוד
-st.set_page_config(page_title="בוט אופציות ת"א 35", layout="wide")
+# הגדרות עמוד - שים לב לשימוש בגרש בודד למניעת שגיאות
+st.set_page_config(page_title='בוט אופציות תא 35', layout='wide')
 
-st.title("🤖 מערכת ניהול אופציות מעו"ף - ת"א 35")
+st.title('🤖 בוט אופציות מדד תא 35')
 
-# סימולציה של נתוני שוק (בהמשך נחבר ל-API)
-index_price = 2050.50
-st.sidebar.metric("מדד ת"א 35", f"{index_price}", "0.45%")
+# נתוני שוק בסיסיים
+underlying = 2000
+st.metric(label='מדד תא 35', value=underlying)
 
-# פונקציה פשוטה לחישוב יווניות (לצורכי תצוגה)
-def calculate_greeks(strike, type="Call"):
-    delta = 0.5 if type == "Call" else -0.5
-    theta = -0.8
-    return delta, theta
+st.subheader('📊 טבלת אופציות (סימולציה)')
 
-# יצירת נתונים לטבלת אופציות
-strikes = [2000, 2020, 2040, 2060, 2080, 2100]
-data = []
-
-for s in strikes:
-    d_c, t_c = calculate_greeks(s, "Call")
-    d_p, t_p = calculate_greeks(s, "Put")
-    data.append({
-        "Strike": s,
-        "Call Delta": d_c,
-        "Call Theta": t_c,
-        "Put Delta": d_p,
-        "Put Theta": t_p
-    })
-
+# יצירת טבלה בסיסית כדי שהאתר יראה מקצועי
+data = {
+    'Strike': [1950, 1980, 2000, 2020, 2050],
+    'Call Price': [6500, 4200, 2800, 1500, 600],
+    'Put Price': [400, 900, 2800, 4500, 7200],
+    'Delta': [0.85, 0.65, 0.50, 0.35, 0.15]
+}
 df = pd.DataFrame(data)
-
-# תצוגה למשתמש
-st.subheader("📊 לוח אופציות (Option Chain) ויווניות")
 st.table(df)
 
-st.info("💡 הערה: הנתונים כרגע הם סימולציה. בשלב הבא נחבר אותם לנתוני אמת.")
+st.success('האתר מחובר ופועל! כעת נשאר רק לחבר נתונים חיים.')
