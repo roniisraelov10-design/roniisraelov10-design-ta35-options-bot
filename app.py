@@ -330,7 +330,7 @@ def page_home():
 
     with col1:
         st.metric(
-            "💹 ת"א 35 נוכחי",
+            label="📈 מדד ת"א 35",
             f"{st.session_state.market_data['underlying_price']:,.0f}",
             delta=None,
         )
