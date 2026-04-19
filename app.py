@@ -22,28 +22,16 @@ from datetime import datetime, date, timedelta
 from pathlib import Path
 from typing import Optional, Literal
 import numpy as np
-import pandas as pd
-import streamlit as st
-import plotly.graph_objects as go
-import plotly.express as px
-from dataclasses import asdict
-
-# הוסף את תיקיית הרוט ל-path כדי ליבוא מודולים
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-# ייבוא מודלים ומנוע האותות
-from signals.models import (
-    SpreadSignal, IronCondorSignal, SignalStrength, StrategyType,
-    OptionQuote,
+from models import (
+    OptionType, OptionAction, OptionContract, 
+    Position, Strategy, MarketData
 )
-from signals.signal_generator import SignalGenerator, BankOfIsraelRateProvider, IVRankCalculator
-from analytics.calendar_il import compute_dte
-from analytics.black_scholes import bs_price
-
-# הגדרת logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
+from engine import OptionsEngine
+from black_scholes import BlackScholes
+from calendar_il import IsraelBusinessCalendar
+from signal_generator import SignalGenerator, BankOfIsraelRateProvider
+from risk_manager import RiskManager
+from collar_enforcer import CollarEnforcer
 # ---------------------------------------------------------------------------
 # פונקציות עזר — טעינת נתונים עם Caching
 # ---------------------------------------------------------------------------
